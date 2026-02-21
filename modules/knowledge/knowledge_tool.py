@@ -5,22 +5,28 @@ import time
 from utils.logger import logger
 
 
-def search_web(query: str, max_results: int = 3):
-    try:
-        time.sleep(1)  # ⭐ avoid rate limit
+def search_web(query: str, max_results: int = 3) -> str:
+    """
+    Try DuckDuckGo with multiple backends.
+    Returns snippet string or empty string on failure.
+    """
+    backends = ["api", "html", "lite"]
 
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=max_results, backend="lite"))
+    for backend in backends:
+        try:
+            time.sleep(1.5)
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=max_results, backend=backend))
 
-        if not results:
-            return "No information found."
+            if results:
+                snippets = [r.get("body", "") for r in results if r.get("body")]
+                if snippets:
+                    logger.info(f"Search success via backend: {backend}")
+                    return " ".join(snippets)
 
-        snippets = []
-        for r in results:
-            snippets.append(r.get("body", ""))
+        except Exception as e:
+            logger.warning(f"Search failed with backend '{backend}': {e}")
+            continue
 
-        return " ".join(snippets)
-
-    except Exception as e:
-        logger.error(f"Knowledge search error: {e}")
-        return "Could not fetch latest information."
+    logger.error("All search backends failed")
+    return ""

@@ -43,15 +43,17 @@ class SceneModule:
 
         # ── Step 2 — Perception prompt ──
         perception_prompt = """
-Analyze the scene and return structured awareness.
+Analyze the scene carefully and return rich, descriptive structured awareness.
 
-Focus ONLY on:
-- objects close to the camera
-- objects in hand
-- possible obstacles ahead
-- general environment context
+Instructions:
+- "near": list objects/people close to the camera with brief descriptors (e.g. "a wooden chair", "a person in a red shirt")
+- "in_hand": list items visibly held or gripped by the person
+- "obstacles": list anything that could block movement (e.g. "a step", "a bag on the floor")
+- "context": write 1-2 full sentences describing the overall environment — lighting, room type, mood, and notable features
+- "confidence": float 0.0 to 1.0
 
-If unsure about objects, return empty lists.
+Be specific and descriptive. Avoid vague terms like "object" or "thing".
+If unsure about lists, leave them empty — but always fill "context" with your best observation.
 
 Respond strictly in this JSON format with no extra text:
 {"near": [], "in_hand": [], "obstacles": [], "context": "", "confidence": 0.0}
@@ -96,17 +98,20 @@ Respond strictly in this JSON format with no extra text:
 
         near = [str(o) for o in data.get("near", []) if o]
         if near:
-            parts.append(f"Nearby I can see: {', '.join(near)}.")
+            if len(near) == 1:
+                parts.append(f"Right nearby, I can see {near[0]}.")
+            else:
+                parts.append(f"Right nearby, I can see {', '.join(near[:-1])}, and {near[-1]}.")
 
         in_hand = [str(o) for o in data.get("in_hand", []) if o]
         if in_hand:
-            parts.append(f"You appear to be holding: {', '.join(in_hand)}.")
+            parts.append(f"You appear to be holding {' and '.join(in_hand)}.")
 
         obstacles = [str(o) for o in data.get("obstacles", []) if o]
         if obstacles:
-            parts.append(f"Watch out for: {', '.join(obstacles)}.")
+            parts.append(f"Please be careful — I notice {', '.join(obstacles)} that could be in your way.")
 
         if not parts:
-            return "I can see the scene but could not identify anything clearly."
+            return "I can see the scene but could not make out anything clearly right now."
 
         return " ".join(parts)

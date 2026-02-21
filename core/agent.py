@@ -36,14 +36,16 @@ Pick ONE mode from this list:
 - currency_mode
 - stop_mode
 - knowledge_mode
+- greeting_mode
 - unknown
 
 Hints:
 - paisa, note, money, currency, kitne ka → currency_mode
-- stop, band karo, ruk jao, thank you, bas → stop_mode
+- stop, band karo, ruk jao, bas → stop_mode
 - read, padho, kya likha hai → reading_mode
 - surroundings, aas paas, bata kya hai, describe, surrounding → navigation_mode
 - news, weather, time, who is, what is, information, update → knowledge_mode
+- thank you, thanks, shukriya, dhanyawad, great, awesome, helpful → greeting_mode
 
 IMPORTANT: Return ONLY a raw JSON object. No markdown. No code fences. No explanation.
 Example: {{"mode": "navigation_mode", "confidence": 0.92, "cleaned_text": "describe surroundings", "extra_context": ""}}
@@ -55,6 +57,7 @@ VALID_MODES = {
     "currency_mode",
     "stop_mode",
     "knowledge_mode",
+    "greeting_mode",
     "unknown"
 }
 
@@ -153,6 +156,7 @@ def route_to_module(state: AssistantState) -> str:
         "currency_mode":   "currency_node",
         "stop_mode":       "stop_node",
         "knowledge_mode":  "knowledge_node",
+        "greeting_mode":   "greeting_node",
     }
     return routes.get(state.get("mode", "unknown"), "tts_node")
 
@@ -249,6 +253,17 @@ def knowledge_node(state: AssistantState) -> AssistantState:
 
 
 # ═══════════════════════════════════════════════
+# NODE 3f — Greeting
+# ═══════════════════════════════════════════════
+def greeting_node(state: AssistantState) -> AssistantState:
+    logger.info("Executing Greeting node")
+    return {
+        **state,
+        "final_output": "I hope everything is alright! How can I help you more?"
+    }
+
+
+# ═══════════════════════════════════════════════
 # NODE 4 — TTS
 # ═══════════════════════════════════════════════
 def tts_node(state: AssistantState) -> AssistantState:
@@ -259,10 +274,6 @@ def tts_node(state: AssistantState) -> AssistantState:
         return state
 
     output = state.get("final_output", "").strip()
-
-    # if not output:
-    #     output = "Sorry, I could not process that."
-
     Speaker().speak(output)
     return state
 
@@ -280,6 +291,7 @@ def build_agent():
     graph.add_node("currency_node",     currency_node)
     graph.add_node("stop_node",         stop_node)
     graph.add_node("knowledge_node",    knowledge_node)
+    graph.add_node("greeting_node",     greeting_node)
     graph.add_node("tts_node",          tts_node)
 
     graph.set_entry_point("interpret_intent")
@@ -294,6 +306,7 @@ def build_agent():
             "currency_node": "currency_node",
             "stop_node":     "stop_node",
             "knowledge_node":"knowledge_node",
+            "greeting_node": "greeting_node",
             "tts_node":      "tts_node",
         }
     )
@@ -303,6 +316,7 @@ def build_agent():
     graph.add_edge("currency_node", "tts_node")
     graph.add_edge("stop_node",     "tts_node")
     graph.add_edge("knowledge_node","tts_node")
+    graph.add_edge("greeting_node", "tts_node")
     graph.add_edge("tts_node", END)
 
     return graph.compile()
