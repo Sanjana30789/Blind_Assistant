@@ -1,11 +1,14 @@
 # modules/scene/scene_module.py
 # Scene tool → returns structured awareness (NOT narration)
 
+import cv2
 import json
 import re
-from modules.scene.camera import capture_frame_as_base64
+import time
 from modules.scene.vlm_client import VLMClient
 from utils.logger import logger
+from utils.image_utils import frame_to_base64, resize_frame
+from config import CAMERA_INDEX
 
 
 class SceneModule:
@@ -13,16 +16,37 @@ class SceneModule:
     def __init__(self):
         self.vlm = VLMClient()
 
+    def _capture_frames(self, count: int = 3) -> list:
+        """Open camera ONCE and capture all frames — avoids 6s warmup per frame."""
+        frames = []
+        cam = cv2.VideoCapture(CAMERA_INDEX)
+
+        if not cam.isOpened():
+            cam.release()
+            raise RuntimeError("Camera not found.")
+
+        # Warmup once only
+        time.sleep(0.5)
+        for _ in range(3):
+            cam.read()  # discard first few dark frames
+
+        for i in range(count):
+            ret, frame = cam.read()
+            if ret and frame is not None:
+                frame = resize_frame(frame, max_width=1024)
+                frames.append(frame_to_base64(frame, quality=85))
+                logger.debug(f"Frame {i + 1}/{count} captured ✓")
+            time.sleep(0.2)  # small gap between frames
+
+        cam.release()
+        return frames
+
     def _parse_scene_json(self, raw: str) -> dict:
         """Robustly extract JSON from VLM output, handling markdown fences."""
-        # Strip markdown fences
         text = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
-
-        # Find JSON block
         match = re.search(r"\{.*\}", text, re.DOTALL)
         if match:
             return json.loads(match.group())
-
         raise ValueError("No JSON found in VLM output")
 
     def run(self) -> str:
@@ -32,14 +56,15 @@ class SceneModule:
         """
         logger.info("SceneModule.run() | capturing multiple frames")
 
-        # ── Step 1 — Capture frames ──
-        frames = []
-        for i in range(3):
-            try:
-                frames.append(capture_frame_as_base64())
-            except RuntimeError as e:
-                logger.error(f"Camera failed on frame {i}: {e}")
-                return "I could not access the camera."
+        # ── Step 1 — Capture all frames with ONE camera open ──
+        try:
+            frames = self._capture_frames(3)
+        except RuntimeError as e:
+            logger.error(f"Camera error: {e}")
+            return "I could not access the camera."
+
+        if not frames:
+            return "I could not capture any frames from the camera."
 
         # ── Step 2 — Perception prompt ──
         perception_prompt = """
@@ -59,14 +84,13 @@ Respond strictly in this JSON format with no extra text:
 {"near": [], "in_hand": [], "obstacles": [], "context": "", "confidence": 0.0}
 """
 
-        # ── Step 3 — Call VLM ──
+        # ── Step 3 — Call VLM with first frame ──
         raw_output = self.vlm.describe(frames[0], perception_prompt)
         logger.debug(f"Raw perception output: {raw_output[:200]}")
 
         # ── Step 4 — Parse JSON ──
         try:
             scene_data = self._parse_scene_json(raw_output)
-
             scene_data.setdefault("near", [])
             scene_data.setdefault("in_hand", [])
             scene_data.setdefault("obstacles", [])

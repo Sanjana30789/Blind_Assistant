@@ -2,6 +2,18 @@
 
 import sys
 import os
+import os
+import warnings
+warnings.filterwarnings("ignore")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+os.environ["TF_ENABLE_ONEDNN_OPTS"] = "0"
+os.environ["QWEN_2_5_ENABLED"] = "False"
+os.environ["QWEN_3_ENABLED"] = "False"
+os.environ["CORE_MODEL_SAM_ENABLED"] = "False"
+os.environ["CORE_MODEL_SAM3_ENABLED"] = "False"
+os.environ["CORE_MODEL_GAZE_ENABLED"] = "False"
+os.environ["SMOLVLM2_ENABLED"] = "False"
+os.environ["DEPTH_ESTIMATION_ENABLED"] = "False"
 
 # ── Path setup — must be FIRST before any local imports ──
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
