@@ -22,3 +22,11 @@ elevenlabs==1.9.0
 # ── Utilities ─────────────────────────────────────────
 python-dotenv==1.0.1
 loguru==0.7.2
+
+
+fastapi
+uvicorn[standard]
+opencv-python-headless
+numpy
+pillow
+torch

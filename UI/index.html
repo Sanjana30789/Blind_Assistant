@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Blind Assistant</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080c0a;
+      --bg2: #0d1410;
+      --bg3: #111a14;
+      --surface: rgba(255,255,255,0.03);
+      --surface2: rgba(255,255,255,0.055);
+      --border: rgba(255,255,255,0.07);
+      --border2: rgba(80,210,120,0.18);
+      --ink: #e8f0eb;
+      --ink2: #8fa896;
+      --ink3: #4d6155;
+      --green: #3ddc70;
+      --green2: #2ab85a;
+      --green-dim: rgba(61,220,112,0.08);
+      --green-glow: rgba(61,220,112,0.22);
+      --amber: #f0a040;
+      --amber-dim: rgba(240,160,64,0.1);
+      --red: #e05555;
+      --radius: 20px;
+      --radius-sm: 12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Background atmosphere ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 50% at 15% 20%, rgba(61,220,112,0.04) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 60% at 85% 80%, rgba(61,220,112,0.03) 0%, transparent 60%),
+        radial-gradient(ellipse 80% 30% at 50% 100%, rgba(61,220,112,0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Scanline overlay */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.08) 2px,
+        rgba(0,0,0,0.08) 4px
+      );
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    .page { position: relative; z-index: 1; }
+
+    /* ── Header ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 36px 56px 28px;
+      max-width: 1200px;
+      margin: 0 auto;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-group { display: flex; align-items: center; gap: 16px; }
+
+    .logo-icon {
+      width: 44px; height: 44px;
+      border: 1.5px solid var(--border2);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem;
+      background: var(--green-dim);
+      box-shadow: 0 0 20px var(--green-glow);
+      animation: logoBreath 4s ease-in-out infinite;
+    }
+    @keyframes logoBreath {
+      0%,100% { box-shadow: 0 0 20px var(--green-glow); }
+      50% { box-shadow: 0 0 40px rgba(61,220,112,0.3); }
+    }
+
+    .logo-text h1 {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 1.3rem;
+      letter-spacing: -0.3px;
+      color: var(--ink);
+    }
+    .logo-text h1 em {
+      font-style: normal;
+      color: var(--green);
+    }
+    .logo-text p {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--ink3);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 16px; }
+
+    .status-pill {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 8px 18px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--ink2);
+      letter-spacing: 0.5px;
+    }
+    .status-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--ink3);
+      transition: all 0.4s;
+    }
+    .status-dot.ready     { background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .status-dot.listening { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 1s infinite; }
+    .status-dot.processing{ background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: blink 0.6s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+    /* ── Backend banner ── */
+    .banner-wrap { max-width: 1200px; margin: 0 auto; padding: 16px 56px 0; }
+    .banner {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--amber-dim);
+      border: 1px solid rgba(240,160,64,0.25);
+      border-radius: var(--radius-sm);
+      padding: 10px 18px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--amber);
+      letter-spacing: 0.3px;
+    }
+    .banner.ok {
+      background: var(--green-dim);
+      border-color: var(--border2);
+      color: var(--green);
+    }
+
+    /* ── Main grid ── */
+    .main { max-width: 1200px; margin: 0 auto; padding: 40px 56px; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+      transition: border-color 0.3s;
+    }
+    .card:hover { border-color: rgba(255,255,255,0.1); }
+    .card.accent-border { border-color: var(--border2); }
+
+    .card-inner { padding: 32px; }
+
+    /* ── Welcome card ── */
+    .welcome-card .card-inner { padding: 36px; }
+    .welcome-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--green);
+      margin-bottom: 14px;
+    }
+    .welcome-card h2 {
+      font-family: 'Instrument Serif', serif;
+      font-size: 2rem;
+      font-weight: 400;
+      line-height: 1.25;
+      color: var(--ink);
+      margin-bottom: 14px;
+    }
+    .welcome-card h2 em {
+      color: var(--green);
+      font-style: italic;
+    }
+    .welcome-card p {
+      font-size: 0.9rem;
+      color: var(--ink2);
+      line-height: 1.8;
+      font-weight: 400;
+    }
+    .cmd-section { margin-top: 24px; }
+    .cmd-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--ink3);
+      margin-bottom: 10px;
+    }
+    .cmd-list { display: flex; flex-wrap: wrap; gap: 8px; }
+    .cmd-tag {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      color: var(--green);
+      background: var(--green-dim);
+      border: 1px solid rgba(61,220,112,0.2);
+      border-radius: 6px;
+      padding: 5px 12px;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Mic card ── */
+    .mic-card { display: flex; flex-direction: column; align-items: center; gap: 28px; padding: 44px 32px; }
+
+    .mic-orb-wrapper { position: relative; width: 150px; height: 150px; display: flex; align-items: center; justify-content: center; }
+
+    .orb-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(61,220,112,0.15);
+      animation: orbExpand 3s ease-out infinite;
+    }
+    .orb-ring:nth-child(1) { inset: -20px; animation-delay: 0s; }
+    .orb-ring:nth-child(2) { inset: -38px; animation-delay: 0.8s; opacity: 0.6; }
+    .orb-ring:nth-child(3) { inset: -58px; animation-delay: 1.6s; opacity: 0.3; }
+    @keyframes orbExpand {
+      0%   { opacity: 0.6; transform: scale(0.95); }
+      100% { opacity: 0;   transform: scale(1.05); }
+    }
+
+    .mic-btn {
+      position: relative; z-index: 2;
+      width: 130px; height: 130px;
+      border-radius: 50%;
+      border: 1.5px solid var(--border2);
+      background: radial-gradient(circle at 35% 35%, rgba(61,220,112,0.12), var(--bg3) 70%);
+      cursor: default;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow:
+        0 0 0 1px rgba(61,220,112,0.1),
+        0 0 40px rgba(61,220,112,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: all 0.3s;
+    }
+    .mic-btn.active {
+      box-shadow:
+        0 0 0 1px rgba(61,220,112,0.3),
+        0 0 60px rgba(61,220,112,0.18),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .mic-btn svg { width: 42px; height: 42px; color: var(--green); filter: drop-shadow(0 0 10px rgba(61,220,112,0.5)); }
+
+    .waveform { display: flex; align-items: center; gap: 5px; height: 28px; }
+    .wave-bar {
+      width: 3px;
+      border-radius: 3px;
+      background: var(--green);
+      height: 5px;
+      opacity: 0.5;
+      transition: height 0.1s;
+    }
+    .waveform.active .wave-bar { opacity: 1; }
+    .waveform.active .wave-bar:nth-child(1){animation:wv 0.9s 0.0s infinite}
+    .waveform.active .wave-bar:nth-child(2){animation:wv 0.9s 0.1s infinite}
+    .waveform.active .wave-bar:nth-child(3){animation:wv 0.9s 0.2s infinite}
+    .waveform.active .wave-bar:nth-child(4){animation:wv 0.9s 0.1s infinite}
+    .waveform.active .wave-bar:nth-child(5){animation:wv 0.9s 0.0s infinite}
+    .waveform.active .wave-bar:nth-child(6){animation:wv 0.9s 0.15s infinite}
+    .waveform.active .wave-bar:nth-child(7){animation:wv 0.9s 0.25s infinite}
+    .waveform.active .wave-bar:nth-child(8){animation:wv 0.9s 0.1s infinite}
+    .waveform.active .wave-bar:nth-child(9){animation:wv 0.9s 0.05s infinite}
+    @keyframes wv { 0%,100%{height:4px} 50%{height:24px} }
+
+    .mic-status {
+      text-align: center;
+    }
+    .mic-status-label {
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--ink);
+      letter-spacing: -0.2px;
+    }
+    .mic-status-sub {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--ink3);
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .transcript-pill {
+      display: none;
+      background: var(--green-dim);
+      border: 1px solid var(--border2);
+      border-radius: var(--radius-sm);
+      padding: 10px 16px;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+      color: var(--green);
+      text-align: center;
+      max-width: 280px;
+      word-break: break-word;
+      animation: fadeUp 0.3s ease;
+    }
+    .transcript-pill.visible { display: block; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+
+    /* ── Modules ── */
+    .full-width { grid-column: 1 / -1; }
+
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-weight: 700;
+      font-size: 1rem;
+      letter-spacing: -0.2px;
+      color: var(--ink);
+    }
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .section-mono {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--ink3);
+      letter-spacing: 1px;
+    }
+
+    .modules-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+
+    .mod-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 24px 16px 20px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    .mod-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 2px;
+      background: var(--ink3);
+      opacity: 0.3;
+      transition: all 0.3s;
+    }
+    .mod-card.active {
+      border-color: var(--border2);
+      background: var(--green-dim);
+    }
+    .mod-card.active::after {
+      background: var(--green);
+      opacity: 1;
+      box-shadow: 0 0 12px var(--green);
+    }
+    .mod-emoji { font-size: 1.8rem; display: block; margin-bottom: 10px; }
+    .mod-name {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--ink2);
+    }
+    .mod-card.active .mod-name { color: var(--green); }
+    .mod-status {
+      margin-top: 6px;
+      font-size: 0.72rem;
+      color: var(--ink3);
+    }
+    .mod-card.active .mod-status { color: rgba(61,220,112,0.7); }
+
+    /* ── Output + debug ── */
+    .output-row { display: grid; grid-template-columns: 3fr 1fr; gap: 18px; }
+
+    .response-panel { padding: 32px 36px; }
+    .panel-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.63rem;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--ink3);
+      margin-bottom: 18px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .panel-eyebrow::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    .response-text {
+      font-family: 'Instrument Serif', serif;
+      font-size: 1.5rem;
+      line-height: 1.6;
+      color: var(--ink);
+      min-height: 90px;
+      transition: color 0.3s;
+    }
+    .response-text.empty {
+      font-family: 'Space Mono', monospace;
+      font-style: normal;
+      font-size: 0.8rem;
+      color: var(--ink3);
+      letter-spacing: 0.5px;
+    }
+
+    .debug-panel { padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+    .dbrow {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .dbrow-key {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--ink3);
+    }
+    .dbrow-val {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--green);
+    }
+    .dbrow-val.muted { color: var(--ink2); }
+    .conf-track {
+      height: 3px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 2px;
+      margin-top: 4px;
+      overflow: hidden;
+    }
+    .conf-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green2), var(--green));
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.7s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    /* ── Log ── */
+    .log-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .log-panel::-webkit-scrollbar { width: 3px; }
+    .log-panel::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+    .log-entry {
+      display: grid;
+      grid-template-columns: 64px 52px 1fr;
+      gap: 12px;
+      padding: 10px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      animation: fadeIn 0.25s ease;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(3px)} to{opacity:1;transform:none} }
+    .log-time { color: var(--ink3); }
+    .log-level { font-weight: 700; }
+    .log-level.INFO  { color: var(--green); }
+    .log-level.DEBUG { color: #5ba0e8; }
+    .log-level.WARN  { color: var(--amber); }
+    .log-level.ERROR { color: var(--red); }
+    .log-msg { color: var(--ink2); word-break: break-word; }
+
+    /* ── Footer ── */
+    footer {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px 56px 36px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    footer p {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--ink3);
+      letter-spacing: 0.5px;
+    }
+    .footer-dot { color: var(--green); margin: 0 6px; }
+
+    /* ── Responsive ── */
+    @media (max-width: 960px) {
+      header, .banner-wrap, .main, footer { padding-left: 24px; padding-right: 24px; }
+      .main { grid-template-columns: 1fr; }
+      .modules-row { grid-template-columns: repeat(3,1fr); }
+      .output-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <header>
+    <div class="logo-group">
+      <div class="logo-icon">👁</div>
+      <div class="logo-text">
+        <h1>Blind <em>Assistant</em></h1>
+        <p>AI-Powered Assistive Technology</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="status-pill">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Connecting…</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Backend banner -->
+  <div class="banner-wrap">
+    <div class="banner" id="backendBanner">⚠ Connecting to backend at localhost:8000…</div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main">
+
+    <!-- Welcome -->
+    <div class="card welcome-card">
+      <div class="card-inner">
+        <div class="welcome-eyebrow">Voice-First Interface</div>
+        <h2>What can I<br/><em>help you with?</em></h2>
+        <p>Navigate the world through AI. Identify currency, describe scenes, read documents, answer questions, and transcribe speech — all hands-free, through your voice.</p>
+        <div class="cmd-section">
+          <div class="cmd-label">Available commands</div>
+          <div class="cmd-list">
+            <span class="cmd-tag">identify currency</span>
+            <span class="cmd-tag">describe scene</span>
+            <span class="cmd-tag">read this</span>
+            <span class="cmd-tag">answer question</span>
+            <span class="cmd-tag">transcribe speech</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mic -->
+    <div class="card accent-border">
+      <div class="mic-card" id="micCard">
+        <div class="mic-orb-wrapper">
+          <div class="orb-ring"></div>
+          <div class="orb-ring"></div>
+          <div class="orb-ring"></div>
+          <div class="mic-btn active" id="micBtn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8"  y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="waveform" id="waveform">
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div><div class="wave-bar"></div>
+          <div class="wave-bar"></div>
+        </div>
+
+        <div class="mic-status">
+          <div class="mic-status-label" id="micLabel">Always Listening</div>
+          <div class="mic-status-sub">Speak anytime — Python backend handles mic</div>
+        </div>
+
+        <div class="transcript-pill" id="transcriptChip">
+          <span id="transcriptText">…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modules -->
+    <div class="full-width">
+      <div class="section-header">
+        <div class="section-title">Modules</div>
+        <div class="section-line"></div>
+        <div class="section-mono">5 available</div>
+      </div>
+      <div class="modules-row">
+        <div class="mod-card" id="mod-currency"><span class="mod-emoji">💵</span><div class="mod-name">Currency</div><div class="mod-status" id="ms-currency">Idle</div></div>
+        <div class="mod-card" id="mod-scene"><span class="mod-emoji">🌄</span><div class="mod-name">Scene</div><div class="mod-status" id="ms-scene">Idle</div></div>
+        <div class="mod-card" id="mod-reading"><span class="mod-emoji">📄</span><div class="mod-name">Reading</div><div class="mod-status" id="ms-reading">Idle</div></div>
+        <div class="mod-card" id="mod-knowledge"><span class="mod-emoji">🧠</span><div class="mod-name">Knowledge</div><div class="mod-status" id="ms-knowledge">Idle</div></div>
+        <div class="mod-card" id="mod-stt"><span class="mod-emoji">🎙️</span><div class="mod-name">STT</div><div class="mod-status" id="ms-stt">Idle</div></div>
+      </div>
+    </div>
+
+    <!-- Output -->
+    <div class="full-width">
+      <div class="section-header">
+        <div class="section-title">Output</div>
+        <div class="section-line"></div>
+      </div>
+      <div class="output-row">
+        <div class="card response-panel">
+          <div class="panel-eyebrow">AI Response</div>
+          <div class="response-text empty" id="spokenText">Waiting for voice command…</div>
+        </div>
+        <div class="card debug-panel">
+          <div class="panel-eyebrow">Debug</div>
+          <div class="dbrow">
+            <div class="dbrow-key">Mode</div>
+            <div class="dbrow-val muted" id="dbMode">—</div>
+          </div>
+          <div class="dbrow">
+            <div class="dbrow-key">Confidence</div>
+            <div class="dbrow-val muted" id="dbConf">—</div>
+            <div class="conf-track"><div class="conf-fill" id="confBar"></div></div>
+          </div>
+          <div class="dbrow">
+            <div class="dbrow-key">Status</div>
+            <div class="dbrow-val muted" id="dbStatus">Idle</div>
+          </div>
+          <div class="dbrow">
+            <div class="dbrow-key">Last heard</div>
+            <div class="dbrow-val muted" id="dbCmd">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log -->
+    <div class="full-width">
+      <div class="section-header">
+        <div class="section-title">Live Log</div>
+        <div class="section-line"></div>
+        <div class="section-mono">Terminal</div>
+      </div>
+      <div class="log-panel" id="logPanel">
+        <div class="log-entry">
+          <span class="log-time">--:--:--</span>
+          <span class="log-level INFO">INFO</span>
+          <span class="log-msg">UI loaded. Connecting to backend at localhost:8000…</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <p>Blind Assistant<span class="footer-dot">·</span>AI Assistive Technology</p>
+    <p id="footerTime"></p>
+  </footer>
+
+</div>
+
+<script>
+const API = 'http://localhost:8000';
+
+// Clock
+function updateClock(){ document.getElementById('footerTime').textContent = new Date().toLocaleTimeString(); }
+setInterval(updateClock, 1000); updateClock();
+
+// Backend health
+async function checkBackend() {
+  try {
+    const r = await fetch(`${API}/api/health`);
+    if (r.ok) {
+      const b = document.getElementById('backendBanner');
+      b.className = 'banner ok';
+      b.textContent = '✓ Backend connected — localhost:8000';
+      setStatus('ready'); return true;
+    }
+  } catch(e) {}
+  const b = document.getElementById('backendBanner');
+  b.className = 'banner';
+  b.textContent = '⚠ Backend not reachable — run: python main.py';
+  setStatus(''); return false;
+}
+checkBackend();
+setInterval(checkBackend, 8000);
+
+// SSE
+let sseConnected = false;
+function connectSSE() {
+  const es = new EventSource(`${API}/api/stream`);
+  es.onopen = () => { if (!sseConnected) { sseConnected = true; addLog('INFO','SSE connected — live updates active'); } };
+  es.onmessage = (e) => {
+    if (e.data.startsWith(':')) return;
+    try {
+      const d = JSON.parse(e.data);
+      if (d.type === 'log')        addLog(d.level, d.msg);
+      if (d.type === 'response')   handleResponse(d);
+      if (d.type === 'module')     activateModule(d.module);
+      if (d.type === 'status')     setStatus(d.status);
+      if (d.type === 'transcript') {
+        document.getElementById('transcriptChip').classList.add('visible');
+        document.getElementById('transcriptText').textContent = d.text;
+        document.getElementById('dbCmd').textContent = d.text;
+        document.getElementById('dbCmd').classList.remove('muted');
+        document.getElementById('waveform').classList.add('active');
+        setTimeout(() => document.getElementById('waveform').classList.remove('active'), 2000);
+      }
+    } catch(err) {}
+  };
+  es.onerror = () => { sseConnected = false; es.close(); setTimeout(connectSSE, 2000); };
+}
+connectSSE();
+
+// Status
+function setStatus(s) {
+  const dot = document.getElementById('statusDot'), txt = document.getElementById('statusText');
+  dot.className = 'status-dot ' + (s||'');
+  const map = { listening:'Listening…', processing:'Processing…', ready:'Ready', '':'Idle' };
+  txt.textContent = map[s] || 'Ready';
+  document.getElementById('dbStatus').textContent = map[s] || 'Idle';
+  document.getElementById('dbStatus').classList.toggle('muted', !s || s === '');
+}
+
+// Modules
+const ALL_MODS = ['currency','scene','reading','knowledge','stt'];
+function activateModule(name) {
+  ALL_MODS.forEach(m => {
+    document.getElementById('mod-'+m).classList.remove('active');
+    document.getElementById('ms-'+m).textContent = 'Idle';
+  });
+  const key = (name||'').toLowerCase().replace('_mode','').replace('_','-').replace(' ','-');
+  const match = ALL_MODS.find(m => key.includes(m));
+  if (match) {
+    document.getElementById('mod-'+match).classList.add('active');
+    document.getElementById('ms-'+match).textContent = 'Active';
+    document.getElementById('dbMode').textContent = match.charAt(0).toUpperCase()+match.slice(1);
+    document.getElementById('dbMode').classList.remove('muted');
+    setTimeout(() => {
+      document.getElementById('mod-'+match).classList.remove('active');
+      document.getElementById('ms-'+match).textContent = 'Done';
+    }, 5000);
+  }
+}
+
+// Response
+function handleResponse(data) {
+  const text = (data.text || '').trim();
+  if (!text) return;
+  const el = document.getElementById('spokenText');
+  el.classList.remove('empty');
+  el.textContent = text;
+  // flash
+  el.style.color = 'var(--green)';
+  setTimeout(() => { el.style.color = ''; }, 600);
+
+  if (data.confidence !== undefined) {
+    const pct = Math.round(data.confidence * 100);
+    document.getElementById('dbConf').textContent = pct + '%';
+    document.getElementById('dbConf').classList.remove('muted');
+    document.getElementById('confBar').style.width = pct + '%';
+  }
+  if (data.mode) {
+    document.getElementById('dbMode').textContent = data.mode.replace('_mode','').replace('_',' ');
+    document.getElementById('dbMode').classList.remove('muted');
+  }
+}
+
+// Log
+function addLog(level, msg) {
+  const p = document.getElementById('logPanel');
+  const t = new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const e = document.createElement('div');
+  e.className = 'log-entry';
+  e.innerHTML = `<span class="log-time">${t}</span><span class="log-level ${level}">${level}</span><span class="log-msg">${msg}</span>`;
+  p.appendChild(e);
+  p.scrollTop = p.scrollHeight;
+  while (p.children.length > 100) p.removeChild(p.firstChild);
+}
+</script>
+</body>
+</html>

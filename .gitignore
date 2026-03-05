@@ -23,3 +23,6 @@ logs/
 # system
 .DS_Store
 Thumbs.db
+
+segment.py
+venv

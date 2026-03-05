@@ -1,5 +1,3 @@
-# core/agent.py — Master LangGraph Agent (Agentic + Continuous Currency Mode)
-
 import json
 import re
 from langgraph.graph import StateGraph, END
