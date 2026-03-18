@@ -63,7 +63,7 @@ VALID_MODES = {
 # ── Safe JSON extractor ───────────────────────────────
 def _parse_llm_json(raw: str) -> dict:
     text = re.sub(r"```(?:json)?", "", raw).strip().rstrip("`").strip()
-    match = re.search(r"\{.*\}", text, re.DOTALL)
+    match = re.search(r"\{.*?\}", text, re.DOTALL)
     if not match:
         raise ValueError(f"No JSON object found in LLM output: {raw!r}")
     result = json.loads(match.group())
